@@ -3,6 +3,7 @@ from telethon import TelegramClient
 import re
 import os
 import datetime
+import logging
 
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
@@ -18,7 +19,7 @@ from PIL import Image
 import io
 import time
 
-
+#holiwi
 # Telethon setup
 api_id = 21333990
 api_hash = 'a5f8595bb23c197c06eb691adc870646'
@@ -27,7 +28,7 @@ group_id = -1001812015314  # Replace with the actual group ID
 
 
 # Selenium setup
-chrome_profile_path = r"C:\Users\dpv_2\AppData\Local\Google\Chrome\User Data\Default"
+chrome_profile_path = r"C:\Users\Administrator\AppData\Local\Google\Chrome\User Data\Default"
 chrome_options = Options()
 chrome_options.add_argument(f"user-data-dir={chrome_profile_path}")
 driver = webdriver.Chrome(options=chrome_options)
@@ -93,31 +94,56 @@ def interact_with_instagram(driver, instagram_url):
     except (TimeoutException, NoSuchElementException) as e:
         print(f"Error: {e}")
 
+logging.basicConfig(level=logging.INFO)
+
 async def fetch_messages():
     async with TelegramClient(phone_number, api_id, api_hash) as client:
-        while True:
-            messages = await client.get_messages(group_id, limit=1)
-            if messages:
-                message = messages[0]
-                message_time = message.date - datetime.timedelta(hours=3)
-                current_time = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(hours=3)
-                is_recent = (current_time - message_time) < datetime.timedelta(minutes=20)
+        await client.start()
+        logging.info("Telegram client started.")
 
-                is_type_1, additional_info = process_message(message)  # Pass the whole message object
-                if is_type_1 and additional_info and is_recent:
-                    task_number, next_task_hour, link = additional_info
-                    delta = calculate_delta(message_time, next_task_hour)
-                    delta2 = calculate_delta(current_time, next_task_hour)
-                    print(delta)
-                    print(delta2, " es sobre la hora actual")
-                    if link:
-                        interact_with_instagram(driver, link)
-                        await send_photo_message(client, task_number, "C:\\code\\telegrambot\\tarea.png")
-                    driver.quit()
-                    await asyncio.sleep(delta.total_seconds())
-                else:
-                    print("holi")
-                    driver.quit()
-                    await asyncio.sleep(60)
+        while True:
+            try:
+                if not client.is_connected():
+                    logging.warning("Client disconnected. Attempting to reconnect...")
+                    await client.connect()
+
+                messages = await client.get_messages(group_id, limit=1)
+                if messages:
+                    message = messages[0]
+                    message_time = message.date - datetime.timedelta(hours=3)
+                    current_time = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(hours=3)
+                    is_recent = (current_time - message_time) < datetime.timedelta(minutes=20)
+                    formatted_time = current_time.strftime('%H:%M')
+
+                    is_type_1, additional_info = process_message(message)
+                    if is_type_1 and additional_info and is_recent:
+                        task_number, next_task_hour, link = additional_info
+                        delta = calculate_delta(message_time, next_task_hour)
+                        delta2 = calculate_delta(current_time, next_task_hour)
+                        print("-----")
+                        print(formatted_time, "   ", delta2)
+                        print("-----")
+                        if link:
+                            interact_with_instagram(driver, link)
+                            await send_photo_message(client, task_number, "C:\\code\\TelegramAntiEstafasBot\\tarea.png")
+                        #driver.close()
+                        #await asyncio.sleep(20)
+                        await asyncio.sleep(delta2.total_seconds())
+                    else:
+                        print("-----")
+                        print(formatted_time, " 1 minuto")
+                        print("-----")
+                        #driver.close()
+                        await asyncio.sleep(60)
+
+            except ConnectionError as e:
+                logging.error(f"ConnectionError encountered: {e}")
+                # Handle reconnection here
+            except Exception as e:
+                logging.error(f"An unexpected error occurred: {e}")
+                # Handle other exceptions
+            finally:
+                # This can be used for cleanup or final checks
+                pass
 
 asyncio.run(fetch_messages())
