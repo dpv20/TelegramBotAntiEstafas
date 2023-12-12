@@ -4,6 +4,7 @@ import re
 import os
 import datetime
 import logging
+import random
 
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
@@ -12,7 +13,6 @@ from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import NoSuchElementException, TimeoutException
-
 
 from telethon import TelegramClient, sync
 from PIL import Image
@@ -44,7 +44,7 @@ async def send_photo_message(client, task_number, screenshot_path):
         await client.start()
 
         # Send the photo with a caption to the bot
-        await client.send_file('@AntiEstafasTareasBot', screenshot_path, caption=f"Tarea {task_number}")
+        await client.send_file('@LinkedIn068', screenshot_path, caption=f"Tarea {task_number}")
 
 def process_message(message):
     # Check if message is None or doesn't have a text attribute
@@ -82,7 +82,7 @@ def interact_with_instagram(driver, instagram_url):
             EC.element_to_be_clickable((By.CLASS_NAME, "xp7jhwk"))
         )
         like_button.click()
-        time.sleep(1)  # Wait for interaction
+        time.sleep(5)  # Wait for interaction
         screenshot = driver.get_screenshot_as_png()
         screenshot = Image.open(io.BytesIO(screenshot))
         width, height = screenshot.size
@@ -90,7 +90,7 @@ def interact_with_instagram(driver, instagram_url):
         cropped_screenshot = screenshot.crop(crop_area)
         cropped_screenshot.save("tarea.png")
         like_button.click()  # Click like button again to unlike
-        time.sleep(1)
+        time.sleep(5)
     except (TimeoutException, NoSuchElementException) as e:
         print(f"Error: {e}")
 
@@ -114,27 +114,47 @@ async def fetch_messages():
                     current_time = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(hours=3)
                     is_recent = (current_time - message_time) < datetime.timedelta(minutes=20)
                     formatted_time = current_time.strftime('%H:%M')
-
+                    random_seconds = random.randint(30, 720)
                     is_type_1, additional_info = process_message(message)
                     if is_type_1 and additional_info and is_recent:
                         task_number, next_task_hour, link = additional_info
                         delta = calculate_delta(message_time, next_task_hour)
-                        delta2 = calculate_delta(current_time, next_task_hour)
+                        if current_time.hour >= 22 or current_time.hour < 9:
+                            delta2 = datetime.timedelta(hours=1)
+                        else:
+                            delta2 = calculate_delta(current_time, next_task_hour)
                         print("-----")
                         print(formatted_time, "   ", delta2)
                         print("-----")
                         if link:
                             interact_with_instagram(driver, link)
+                            time.sleep(random_seconds)
                             await send_photo_message(client, task_number, "C:\\code\\TelegramAntiEstafasBot\\tarea.png")
+                            
+                            if random_seconds > int(delta2.total_seconds()):
+                                delta2 = datetime.timedelta(hours=0)
+                            else:
+                                delta2 = delta2 - datetime.timedelta(seconds=random_seconds)
                         #driver.close()
                         #await asyncio.sleep(20)
+                        
+                        print("-----")
+                        print(formatted_time, "   ", delta2, " post restas")
+                        print("-----")
                         await asyncio.sleep(delta2.total_seconds())
                     else:
-                        print("-----")
-                        print(formatted_time, " 1 minuto")
-                        print("-----")
-                        #driver.close()
-                        await asyncio.sleep(60)
+                        if current_time.hour >= 22 or current_time.hour < 9:
+                            print("-----")
+                            print(formatted_time, " 1 hour")
+                            print("-----")
+                            await asyncio.sleep(3600)
+
+                        else:
+                            print("-----")
+                            print(formatted_time, " 1 minuto")
+                            print("-----")
+                            #driver.close()
+                            await asyncio.sleep(60)
 
             except ConnectionError as e:
                 logging.error(f"ConnectionError encountered: {e}")
